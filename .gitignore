@@ -1,0 +1,24 @@
+# Data & Caches
+cache/
+cache_smoke/
+output/
+student_resource/dataset/
+*.npy
+*.npz
+*.pkl
+*.bin
+
+# Submissions & TSVs (exceeds GitHub 100MB limit)
+*.tsv
+
+# Logs & temp files
+*.log
+*.err.log
+__MACOSX/
+.DS_Store
+
+# Python virtualenvs & byte code
+__pycache__/
+*.pyc
+.venv/
+venv/

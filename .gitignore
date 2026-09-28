@@ -1,17 +1,18 @@
 # Data & Caches
 cache/
 cache_smoke/
-output/
+cache_explore2/
 student_resource/dataset/
 *.npy
 *.npz
 *.pkl
 *.bin
 
-# Submissions & TSVs (exceeds GitHub 100MB limit)
+# Submissions & TSVs (>100MB limit on GitHub)
 *.tsv
+!output/matching_results.tsv
 
-# Logs & temp files
+# Logs & OS artifacts
 *.log
 *.err.log
 __MACOSX/

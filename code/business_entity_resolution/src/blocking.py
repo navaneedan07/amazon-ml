@@ -321,39 +321,57 @@ def topm_pairs(pairs, w, n_s1, m):
 
 def block_all_scored(s1, tgt, tf_indexes, s1_country, tgt_country, chunk=100_000,
                      topm=0, n_s1=None):
-    """Union of all key types with summed-IDF dedup, then optional per-S1 top-M.
-
-    Yields (start, end, pairs) with pairs sorted+deduped.
+    """Multi-stage candidate generation:
+    1. Exact / signature keys (name_exact, name_sig, name_nospace) are preserved in full.
+    2. Token keys are aggregated by summed-IDF and capped per S1 entity via topm.
+    Yields (start, end, pairs) sorted + deduped.
     """
+    exact_names = {"name_exact", "name_sig", "name_nospace"}
     by_name = {ix.name: ix for ix in tf_indexes}
     for start in range(0, s1["n"], chunk):
         end = min(start + chunk, s1["n"])
         qkeys = query_keys(s1, start, end,
                            [type("K", (), {"name": n})() for n in by_name])
-        all_p, all_w = [], []
+        exact_p = []
+        tok_p, tok_w = [], []
         for ix, qh, qr in qkeys:
             if len(qh) == 0:
                 continue
             p, w = by_name[ix.name].probe_scored(qh, qr)
             if len(p):
-                all_p.append(p)
-                all_w.append(w)
-        if not all_p:
+                if ix.name in exact_names:
+                    exact_p.append(p)
+                else:
+                    tok_p.append(p)
+                    tok_w.append(w)
+        
+        parts = []
+        if exact_p:
+            ep = np.concatenate(exact_p)
+            s1r, tr = split_pairs(ep)
+            same = s1_country[s1r.astype(np.int64)] == tgt_country[tr.astype(np.int64)]
+            if not same.all():
+                ep = ep[same]
+            parts.append(np.unique(ep))
+            del exact_p, ep, s1r, tr, same
+
+        if tok_p:
+            tp = np.concatenate(tok_p)
+            tw = np.concatenate(tok_w)
+            tp, tw = _sum_weights(tp, tw)
+            s1r, tr = split_pairs(tp)
+            same = s1_country[s1r.astype(np.int64)] == tgt_country[tr.astype(np.int64)]
+            if not same.all():
+                tp, tw = tp[same], tw[same]
+            if topm and n_s1:
+                tp = topm_pairs(tp, tw, min(end, s1["n"]), topm)
+            parts.append(tp)
+            del tok_p, tok_w, tp, tw, s1r, tr, same
+
+        if not parts:
             yield start, end, np.empty(0, np.uint64)
             continue
-        pairs = np.concatenate(all_p)
-        w = np.concatenate(all_w)
-        del all_p, all_w
-        # dedupe by SUM of shared-key IDF (true pairs share many keys)
-        pairs, w = _sum_weights(pairs, w)
-        s1r, tr = split_pairs(pairs)
-        same = s1_country[s1r.astype(np.int64)] == tgt_country[tr.astype(np.int64)]
-        if not same.all():
-            pairs, w = pairs[same], w[same]
-        del s1r, tr, same
-        if topm and n_s1:
-            # per-S1 top-m within this chunk (s1 rows complete within chunk)
-            pairs = topm_pairs(pairs, w, min(end, s1["n"]), topm)
+        pairs = np.unique(np.concatenate(parts))
         yield start, end, pairs
 
 

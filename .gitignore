@@ -11,6 +11,7 @@ student_resource/dataset/
 # Submissions & TSVs (>100MB limit on GitHub)
 *.tsv
 !output/matching_results.tsv
+!output/candidate_pairs.tsv
 
 # Logs & OS artifacts
 *.log
